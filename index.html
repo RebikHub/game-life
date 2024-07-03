@@ -1,0 +1,414 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Life</title>
+</head>
+<body>
+  <header class="header">Game Life</header>
+  <main class="main">
+    <acide class="menu">
+      <div>
+        Total time: <span class="total-time">00:00</span>
+      </div>
+      <div>
+        Generation: <span class="number-generation">0</span>
+      </div>
+      <div class="board-size">
+        <label for="size">Size:</label>
+        <input name="size" id="width" class="input-size" type="number" value="10"/>
+      </div>
+      <button class="btn-random-size">Random size</button>
+      <div class="board-cell">
+        <label for="cell">Cells: <span class="cell-percent">0</span>%</label>
+        <input name="cell" id="cell" class="input-cell" type="range" min="0" max="100" value="0" step="2"/>
+      </div>
+      <button class="btn-random-cells">Random cells</button>
+      <button class="btn-start">Start</button>
+      <button class="btn-stop">Stop</button>
+      <button class="btn-reset">Reset</button>
+    </acide>
+    <section class="section-board">
+      <div class="board"></div>
+    </section>
+  </main>
+  <style>
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+    }
+    .main {
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      gap: 20px;
+    }
+    .menu {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      min-width: fit-content;
+      gap: 15px;
+    }
+    .section-board {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-height: 90vh;
+      align-items: center;
+      justify-content: center;
+      overflow: auto;
+    }
+    .board-size {
+      display: flex;
+      gap: 15px;
+    }
+    .input-size {
+      width: 75px;
+    }
+    .board-cell {
+      display: flex;
+      flex-direction: column;
+    }
+    .board {
+      display: flex;
+      flex-direction: column-reverse;
+      width: fit-content;
+      height: fit-content;
+    }
+    .line {
+      display: flex;
+    }
+    .line span {
+      display: flex;
+      width: 20px;
+      height: 20px;
+      border: 1px solid black;
+    }
+    .life {
+      background-color: red;
+    }
+  </style>
+  <script>
+    class Utils {
+      static getTime(ms) {
+        const min = Math.floor(ms / 60000);
+        const sec = Math.floor((ms % 60000) / 1000);
+        return `${min < 10 ? '0' : ''}${min}:${sec < 10 ? '0' : ''}${sec}`;
+      }
+
+      static randomSizeCells() {
+        return Math.round(Math.random() * 100);
+      }
+
+      static randomMinMax(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+      }
+
+      static getCellsOfPercent(size, percent) {
+        return Math.round(((size * size) / 100) * percent);
+      }
+
+      static getPercentOfLifes(size, lifes) {
+        return Math.round((lifes / (size * size)) * 100);
+      }
+
+      static getMinus(number, max) {
+        return number - 1 === 0 ? max : number - 1;
+      }
+
+      static getSum(number, max) {
+        return number + 1 === max + 1 ? 1 : number + 1;
+      }
+    }
+
+    class Simulation {
+      constructor(board) {
+        this.totalTime = document.querySelector('.total-time');
+        this.generation = document.querySelector('.number-generation');
+        this.inputCell = document.querySelector('.input-cell');
+        this.cellPercent = document.querySelector('.cell-percent');
+        this.timeStep = 200;
+        this.timer = null;
+        this.board = board;
+        this.logs = { position: [] };
+      }
+
+      simulationLogs(lifes) {
+        const positions = Array.from(lifes).map((e) => ({
+            x: e.dataset.x,
+            y: e.dataset.y
+          }))
+
+        if (this.logs.position.length < 3) {
+          this.logs.position.push(positions)
+        } else {
+          this.logs.position.shift()
+          this.logs.position.push(positions)
+        }
+      }
+
+      checkConditionsStopping() {
+        const lifes = document.querySelectorAll('.life');
+        if (lifes.length === 0) {
+          this.stopSimulation();
+          return false
+        }
+        this.simulationLogs(lifes);
+        const array1 = JSON.stringify(this.logs.position[0])
+        const array2 = JSON.stringify(this.logs.position[1])
+        const array3 = JSON.stringify(this.logs.position[2])
+        if (this.logs.position.length === 3 &&
+          (array3 === array2 || array3 === array1)) {
+          this.stopSimulation();
+          return false
+        }
+
+        return true
+      }
+
+      simulation(coreCell, max) {
+        const x = +coreCell.dataset.x
+        const y = +coreCell.dataset.y
+        const siblings = [
+          { x: Utils.getMinus(x, max), y: Utils.getMinus(y, max) },
+          { x: Utils.getMinus(x, max), y: Utils.getSum(y, max) },
+          { x: Utils.getSum(x, max), y: Utils.getMinus(y, max) },
+          { x: Utils.getSum(x, max), y: Utils.getSum(y, max) },
+          { x, y: Utils.getMinus(y, max) },
+          { x, y: Utils.getSum(y, max) },
+          { x: Utils.getSum(x, max), y },
+          { x: Utils.getMinus(x, max), y }
+        ];
+
+        let lifes = 0;
+        siblings.forEach(({x, y}) => {
+          const cell = this.board.map.get(`${x},${y}`)
+          if (cell && cell.classList.contains('life')) {
+            lifes += 1;
+          }
+        });
+
+        if (coreCell.classList.contains('life') && (lifes < 2 || lifes > 3)) {
+          return { x, y, life: false };
+        } else if (lifes === 3) {
+          return { x, y, life: true };
+        }
+        return { x, y, life: coreCell.classList.contains('life') };
+      }
+
+      updateGeneration(cells) {
+        Interface.updatePercentOfLifes(this.board.size, this.inputCell, this.cellPercent);
+        const size = +this.board.size
+        const newGeneration = [];
+        cells.forEach(cell => {
+          newGeneration.push(this.simulation(cell, size));
+        });
+
+        newGeneration.forEach(({ x, y, life }) => {
+          const cell = this.board.map.get(`${x},${y}`)
+          if (life && !cell.classList.contains('life')) {
+            cell.classList.add('life');
+          } else if (!life && cell.classList.contains('life')) {
+            cell.classList.remove('life');
+          }
+        });
+      }
+
+      startSimulation() {
+        let ms = 0;
+        let generation = 1;
+        const cells = document.querySelectorAll('.cell');
+
+        const simulate = () => {
+          if (this.checkConditionsStopping()) {
+            this.totalTime.textContent = Utils.getTime(ms);
+            ms += this.timeStep;
+            generation += 1;
+            this.updateGeneration(cells);
+            this.generation.textContent = generation;
+            this.timer = setTimeout(simulate, this.timeStep);
+          }
+        };
+
+        simulate();
+      }
+
+      stopSimulation() {
+        clearInterval(this.timer);
+      }
+
+      resetSimulation() {
+        clearInterval(this.timer);
+        this.timer = null;
+        this.totalTime.textContent = '00:00';
+        this.generation.textContent = '0';
+      }
+    }
+
+    class Board {
+      constructor(input) {
+        this.board = document.querySelector('.board');
+        this.input = input;
+        this.size = this.input.defaultValue;
+        this.map = new Map();
+        this.renderBoard();
+      }
+
+      static clearLifeCells() {
+        const lifes = document.querySelectorAll('.life');
+        lifes.forEach(life => life.classList.remove('life'));
+      }
+
+      createCells(cells) {
+        Board.clearLifeCells();
+        for (let i = 0; i < cells; i += 1) {
+          const x = Utils.randomMinMax(1, +this.size);
+          const y = Utils.randomMinMax(1, +this.size);
+          const cell = this.map.get(`${x},${y}`);
+          cell.classList.add('life');
+        }
+      }
+
+      updateSize() {
+        this.size = this.input.value;
+        this.renderBoard();
+      }
+
+      renderBoard() {
+        this.map.clear();
+        const size = +this.size;
+        this.board.innerHTML = '';
+        const fragment = document.createDocumentFragment();
+
+        for (let i = 0; i < size; i += 1) {
+          const div = document.createElement('div');
+          div.className = 'line';
+
+          for (let j = 0; j < size; j += 1) {
+            const cell = document.createElement('span');
+            cell.className = 'cell';
+            cell.dataset.x = `${j + 1}`;
+            cell.dataset.y = `${i + 1}`;
+            div.append(cell);
+            this.map.set(`${j + 1},${i + 1}`, cell)
+          }
+
+          fragment.append(div);
+        }
+        this.board.append(fragment);
+      }
+    }
+
+    class Interface {
+      constructor() {
+        this.inputSize = document.querySelector('.input-size');
+        this.inputCell = document.querySelector('.input-cell');
+        this.cellPercent = document.querySelector('.cell-percent');
+        this.btnStart = document.querySelector('.btn-start');
+        this.btnRandomSize = document.querySelector('.btn-random-size');
+        this.btnRandomCells = document.querySelector('.btn-random-cells');
+        this.btnStop = document.querySelector('.btn-stop');
+        this.btnReset = document.querySelector('.btn-reset');
+        this.board = new Board(this.inputSize);
+        this.simulation = new Simulation(this.board);
+        this.cells = 0;
+      }
+
+      static updatePercentOfLifes(size, input, percent) {
+        const lifes = document.querySelectorAll('.life');
+        const perc = Utils.getPercentOfLifes(+size, lifes.length);
+        input.value = perc;
+        percent.textContent = perc;
+      }
+
+      
+
+      listenerCells() {
+        const cells = document.querySelectorAll('.cell');
+        cells.forEach(cell => {
+          cell.addEventListener('click', (e) => {
+            const { target } = e;
+            if (target.classList.contains('life')) {
+              target.classList.remove('life');
+            } else {
+              target.classList.add('life');
+            }
+            Interface.updatePercentOfLifes(this.inputSize.value, this.inputCell, this.cellPercent);
+          });
+        });
+      }
+
+      init() {
+        this.inputSize.addEventListener('input', (e) => {
+          this.board.size = e.target.value;
+          this.inputCell.value = 0;
+          this.cellPercent.textContent = 0;
+          this.board.renderBoard();
+          this.listenerCells();
+        });
+
+        this.inputCell.addEventListener('input', (e) => {
+          this.cellPercent.textContent = e.target.value;
+          this.cells = Utils.getCellsOfPercent(+this.inputSize.value, e.target.value);
+          this.board.createCells(this.cells);
+          Interface.updatePercentOfLifes(this.inputSize.value, this.inputCell, this.cellPercent);
+        });
+
+        this.btnStart.addEventListener('click', () => {
+          this.btnStart.disabled = true;
+          this.btnRandomSize.disabled = true;
+          this.btnRandomCells.disabled = true;
+          this.inputSize.disabled = true;
+          this.inputCell.disabled = true;
+          this.simulation.startSimulation();
+        });
+
+        this.btnRandomSize.addEventListener('click', () => {
+          const randomNumber = Utils.randomMinMax(5, 29);
+          this.inputSize.value = randomNumber;
+          this.board.updateSize();
+          this.listenerCells();
+          Interface.updatePercentOfLifes(this.inputSize.value, this.inputCell, this.cellPercent);
+        });
+
+        this.btnRandomCells.addEventListener('click', () => {
+          const randomNumber = Utils.randomSizeCells();
+          this.inputCell.value = randomNumber;
+          this.cellPercent.textContent = randomNumber;
+          this.cells = Utils.getCellsOfPercent(+this.inputSize.value, randomNumber);
+          this.board.createCells(this.cells);
+          Interface.updatePercentOfLifes(this.inputSize.value, this.inputCell, this.cellPercent);
+        });
+
+        this.btnStop.addEventListener('click', () => {
+          this.simulation.stopSimulation();
+        });
+
+        this.btnReset.addEventListener('click', () => {
+          this.simulation.resetSimulation();
+          this.btnStart.disabled = false;
+          this.btnRandomSize.disabled = false;
+          this.btnRandomCells.disabled = false;
+          this.inputSize.disabled = false;
+          this.inputCell.disabled = false;
+          this.inputSize.value = 10;
+          this.board.size = 10;
+          this.inputCell.value = 0;
+          this.cellPercent.textContent = 0;
+          Board.clearLifeCells();
+          this.board.renderBoard();
+          this.listenerCells();
+        });
+
+        this.listenerCells();
+      }
+    }
+
+    const int = new Interface();
+    int.init();
+  </script>
+</body>
+</html>
