@@ -97,14 +97,13 @@ export class Simulation {
   }
 
   startSimulation () {
-    let ms = 0
+    const startTime = Date.now()
     let generation = 1
     const cells = document.querySelectorAll('.cell')
 
     const simulate = () => {
       if (this.checkConditionsStopping()) {
-        this.totalTime.textContent = Utils.getTime(ms)
-        ms += this.timeStep
+        this.totalTime.textContent = Utils.getTime(Date.now() - startTime)
         generation += 1
         this.updateGeneration(cells)
         this.generation.textContent = generation
