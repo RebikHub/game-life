@@ -37,21 +37,24 @@ export class Board {
     this.board.innerHTML = ''
     const fragment = document.createDocumentFragment()
 
-    for (let i = 0; i < size; i += 1) {
-      const div = document.createElement('div')
-      div.className = 'line'
+        const div = document.createElement('div');
+        const cell = document.createElement('span');
 
-      for (let j = 0; j < size; j += 1) {
-        const cell = document.createElement('span')
-        cell.className = 'cell'
-        cell.dataset.x = `${j + 1}`
-        cell.dataset.y = `${i + 1}`
-        div.append(cell)
-        this.map.set(`${j + 1},${i + 1}`, cell)
-      }
+        for (let i = 0; i < size; i += 1) {
+          const cloneDiv = div.cloneNode(true);
+          cloneDiv.className = 'line';
 
-      fragment.append(div)
-    }
+          for (let j = 0; j < size; j += 1) {
+            const cloneCell = cell.cloneNode(true);
+            cloneCell.className = 'cell';
+            cloneCell.dataset.x = `${j + 1}`;
+            cloneCell.dataset.y = `${i + 1}`;
+            cloneDiv.append(cloneCell);
+            this.map.set(`${j + 1},${i + 1}`, cloneCell)
+          }
+
+          fragment.append(cloneDiv);
+        }
     this.board.append(fragment)
   }
 }
